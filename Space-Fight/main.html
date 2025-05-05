@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+  <!-- prettier-ignore -->
+  <script id="vertex-shader" type="x-shader/x-vertex"> #version 300 es
+
+        in vec4 vPosition;
+        in vec3 vNormal;
+        in vec4 vColor;
+        in vec2 vTexCoord;
+
+        uniform mat4 modelViewMatrix;
+        uniform mat4 normalMatrix;
+        uniform mat4 projectionMatrix;
+        uniform vec4 lightPosition;
+
+        out vec3 fPos ; // vertex position in eye coords
+        out vec3 fLpos ; // light position in eye coords
+        out vec3 fN ; // vertex normal in eye coords
+        out vec2 fTexCoord;
+
+        void main() {
+              // Transform vertex position into eye coordinates
+              fPos = (modelViewMatrix * vPosition).xyz;
+              //transform normal in eye coordinates
+              fN = normalize( (normalMatrix*vec4(vNormal,0.0)).xyz);
+              // pass through light position
+              fLpos = lightPosition.xyz ;
+              // Transform vertex position in clip coordinates
+              gl_Position = projectionMatrix * modelViewMatrix * vPosition;
+              fTexCoord = vTexCoord;
+        }
+
+  </script>
+  <!-- prettier-ignore -->
+  <script id="fragment-shader" type="x-shader/x-fragment"> #version 300 es
+            precision mediump float;
+
+            uniform vec4 ambientProduct, diffuseProduct, specularProduct;
+            uniform float shininess;
+            uniform int blendTextures;
+            uniform int tint;
+            uniform int grayScale;
+            uniform sampler2D texture1;
+            uniform sampler2D texture2;
+            uniform sampler2D texture3;
+
+
+
+            in vec3 fPos;
+            in vec3 fLpos;
+            in vec3 fN;
+            in vec2 fTexCoord;
+            layout (location = 0) out vec4 fragColor ;
+            
+            vec4 ads(vec3 pos, vec3 lpos, vec3 N) {
+              vec3 L = normalize(lpos - pos);
+              vec3 V = -pos;
+              vec3 H = normalize(L + V);
+              //vec3 R = reflect(-L, N) ;
+
+              // Compute terms in the illumination equation
+              float lightDotNormal = max(dot(L, N), 0.0);
+              vec4 diffuse = vec4(0.0, 0.0, 0.0, 1.0);
+              diffuse = diffuseProduct * lightDotNormal;
+
+              float reflectedDotViewShiny = pow(max(dot(N, H), 0.0), shininess);
+              vec4 specular = vec4(0.0, 0.0, 0.0, 1.0);
+              specular = specularProduct * reflectedDotViewShiny;
+
+              if (dot(L, N) < 0.0) {
+                specular = vec4(0.0, 0.0, 0.0, 1.0);
+              }
+              //Compute Color
+              vec4 color = ambientProduct + diffuse + specular;
+              color.a = 1.0;
+              //Add Red tint to color
+              if (tint == 1){
+                  color.r += 0.5;
+                  //Create Grayscale
+              } else if (grayScale ==1){
+                  // Calculate the average of the red, green, and blue components
+                  float grayscaleValue = (color.r + color.g + color.b) / 3.0;
+                  // Create a grayscale color
+                  vec4 grayscaleColor = vec4(grayscaleValue, grayscaleValue, grayscaleValue, color.a);
+                  color = grayscaleColor;
+              } 
+                if( blendTextures == 1) {
+                  vec4 alphaTextureColor = texture( texture2, fTexCoord );
+                  vec4 texColor = mix(texture( texture1, fTexCoord ), alphaTextureColor, alphaTextureColor.a);
+                  color = texColor;
+                
+              }
+              return color;
+
+
+            }
+
+            void main() {
+              fragColor = ads(fPos,fLpos,fN);
+            }
+
+            
+            
+</script>
+
+  <script type="text/javascript" src="Common/webgl-utils.js"></script>
+  <script type="text/javascript" src="Common/initShaders.js"></script>
+
+  <script type="text/javascript" src="Common/MV.js"></script>
+  <script type="text/javascript" src="objects.js"></script>
+  <script type="text/javascript" src="main.js"></script>
+
+  <body>
+    <canvas id="gl-canvas" width="512" height="512">
+      Oops ... your browser doesn't support the HTML5 canvas element
+    </canvas>
+
+    <br />
+    <br />
+  </body>
+</html>
